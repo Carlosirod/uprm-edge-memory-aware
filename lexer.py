@@ -84,10 +84,10 @@ def t_newline(t):
 
 def t_error(t):
     if t.value[0] == '"':
-        description = "cadena sin comillas de cierre"
+        description = "string without a closing quotation mark"
     else:
-        description = f"caracter ilegal {t.value[0]!r}"
+        description = f"ilegal caracter {t.value[0]!r}"
 
-    raise LanguageError(f"{description} en linea {t.lineno}")
+    raise LanguageError(f"{description} in line {t.lineno}")
 
 lexer = lex.lex()

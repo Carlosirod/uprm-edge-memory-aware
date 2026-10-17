@@ -287,13 +287,13 @@ def p_empty(p):
 def p_error(token):
     if token is None:
         raise LanguageError(
-            f"fin de archivo inesperado en linea {active_lexer.lineno}; "
-            "falta completar una instruccion o cerrar un delimitador"
+            f"unexpected end of file on line {active_lexer.lineno}; "
+            "An instruction is incomplete, or a delimiter is missing its closing counterpart"
         )
 
     raise LanguageError(
-        f"token inesperado {token.value!r} en linea {token.lineno}; "
-        "revisa la instruccion y sus delimitadores"
+        f"unexpected token {token.value!r} in line {token.lineno}; "
+        "review the instruction and its delimiters"
     )
 
 
