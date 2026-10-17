@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project implements the UEDGE programming language with the Memory-Aware extension (Track A).
+This project develops the UEDGE programming language for Track A (Memory-Aware).
 
 ## Team Members
 
@@ -12,15 +12,16 @@ This project implements the UEDGE programming language with the Memory-Aware ext
 
 ## Project Structure
 
-- `lexer.py`: Lexical analysis and token definitions.
-- `parser.py`: UEDGE grammar and syntax analysis.
-- `your_parser.py`: Parser command-line entry point.
-- `tests/`: UEDGE programs used to validate the implementation.
+- `lexer.py`: Lexical analysis.
+- `parser.py`: Syntax analysis and grammar.
+- `your_parser.py`: Command-line entry point for the parser.
+- `tests/`: UEDGE test programs.
 
-## Memory Model
+## Sample Memory Model
 
-The sample test programs assume that integers and floating-point values each occupy 4 bytes. The team will document the budget units and assumptions used by its implementation.
+- int: 4 bytes
+- float: 4 bytes
 
 ## Testing
 
-The project will be tested with valid programs, malformed syntax, invalid characters, and Memory-Aware annotation examples.
+The project will be tested with valid UEDGE programs, syntax errors, lexical errors, and Memory-Aware annotations.
