@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import sys
 from pathlib import Path
 
@@ -86,12 +87,25 @@ def t_DECIMAL(t):
     t.value = float(t.value)
     return t
 
+=======
+import ply.lex as lex
+import ply.yacc as yacc
+
+#Lexer
+tokens = (
+    "INTEGER",
+    "PLUS",
+)
+
+t_PLUS = r"\+"
+>>>>>>> 2adfe5195c04f033ef39ded4ac2390fa2cfb1522
 
 def t_INTEGER(t):
     r"\d+"
     t.value = int(t.value)
     return t
 
+<<<<<<< HEAD
 
 def t_TEXT(t):
     r'"(?:[^"\\\n]|\\[^\n])*"'
@@ -104,10 +118,14 @@ def t_ID(t):
     t.type = reserved.get(t.value, "ID")
     return t
 
+=======
+t_ignore = " \t\r"
+>>>>>>> 2adfe5195c04f033ef39ded4ac2390fa2cfb1522
 
 def t_newline(t):
     r"\n+"
     t.lexer.lineno += len(t.value)
+<<<<<<< HEAD
 
 
 def t_error(t):
@@ -470,3 +488,58 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+=======
+    
+def t_error(t):
+    raise SyntaxError(
+        f"Caracter ilegal {t.value[0]!r} en linea {t.lineno}"
+    )
+
+#Parser
+
+precedence = (
+    ("left", "PLUS"),
+)
+
+def p_expression_integer(p):
+    "expression : INTEGER"
+    p[0] = p[1]
+    
+def p_expression_plus(p):
+    "expression : expression PLUS expression"
+
+    p[0] = {
+        "kind": "sum",
+        "left": p[1],
+        "right": p[3],
+    }
+
+def p_error(p):
+    if p is None:
+        raise SyntaxError("La entrada termino antes de completar la expresion")
+
+    raise SyntaxError(
+        f"Token inesperado {p.value!r} en linea {p.lineno}"
+    )
+    
+    
+#test
+lexer = lex.lex()
+
+lexer.input("5 + 3")
+
+for token in lexer:
+    print(token.type, token.value)
+
+parser = yacc.yacc(
+    start="expression",
+    write_tables=False,
+    debug=False,
+)
+
+    
+result = parser.parse("5 + 3", lexer=lexer)
+print("Expresion reconocida:", result)
+    
+    
+>>>>>>> 2adfe5195c04f033ef39ded4ac2390fa2cfb1522
