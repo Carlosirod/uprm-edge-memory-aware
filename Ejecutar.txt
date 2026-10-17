@@ -1,0 +1,1 @@
+.\.venv\bin\python.exe your_parser.py name.uedge
