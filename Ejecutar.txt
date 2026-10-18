@@ -1,5 +1,8 @@
-.\.venv\bin\python.exe parser.py ".\tests\Invalid Core Programs-20261017\01_illegal_character.uedge"
+python -m venv .venv
+.\.venv\bin\python.exe -m pip install ply
 
 .\.venv\bin\python.exe parser.py ".\tests\Invalid Core Programs-20261017\name.uedge"
 
-.\.venv\bin\python.exe parser.py ".\tests\Invalid Core Programs-20261017\01_illegal_character.uedge"
+.\.venv\bin\python.exe parser.py ".\tests\Memory Track-20261017\name.uedge"
+
+.\.venv\bin\python.exe parser.py ".\tests\Valid Core Programs-20261017\name.uedge"
