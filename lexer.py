@@ -1,6 +1,6 @@
 import ply.lex as lex
 
-class LexerError(Exception):
+class LanguageError(Exception):
     pass
 
 # Reserved words
@@ -142,9 +142,12 @@ def t_newline(t):
 # Lexical errors
 
 def t_error(t):
-    raise LexerError(
-        f"illegal character '{t.value[0]}' at line {t.lineno}"
-    )
+    if t.value[0] == '"':
+        description = "string without a closing quotation mark"
+    else:
+        description = f"ilegal caracter {t.value[0]!r}"
+
+    raise LanguageError(f"{description} in line {t.lineno}")
 
 # Build lexer
 

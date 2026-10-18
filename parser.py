@@ -1,6 +1,11 @@
+import sys
+from pathlib import Path
 
 import ply.yacc as yacc
-from lexer import tokens, lexer
+from lexer import tokens, lexer, LanguageError
+
+def node(kind, **fields):
+    return {"kind": kind, **fields}
 
 
 def p_program(p):
@@ -119,17 +124,68 @@ def p_empty(p):
     p[0] = []
 
 
-def p_error(p):
-    if p:
-        raise SyntaxError(
-            f"Syntax error at line {p.lineno}, near {p.value!r}"
+def p_error(token):
+    if token is None:
+        raise LanguageError(
+            f"unexpected end of file on line {active_lexer.lineno}; "
+            "An instruction is incomplete, or a delimiter is missing its closing counterpart"
         )
-    raise SyntaxError("Unexpected end of input")
 
+    raise LanguageError(
+        f"unexpected token {token.value!r} in line {token.lineno}; "
+        "review the instruction and its delimiters"
+    )
 
-parser = yacc.yacc()
+####
 
+active_lexer = None
 
 def parse(source):
-    lexer.lineno = 1
-    return parser.parse(source, lexer=lexer)
+    """Analiza el codigo y devuelve su AST sin ejecutarlo."""
+    global active_lexer
+
+    active_lexer = lexer
+    active_lexer.lineno = 1
+
+    parser = yacc.yacc(
+        start="program",
+        write_tables=False,
+        debug=False,
+    )
+
+    return parser.parse(
+        source,
+        lexer=active_lexer,
+        tracking=True,
+    )
+
+
+def main():
+    if len(sys.argv) != 2:
+        print(
+            "Uso: python parser.py <archivo>.uedge",
+            file=sys.stderr,
+        )
+        return 2
+
+    try:
+        source = Path(sys.argv[1]).read_text(encoding="utf-8-sig")
+        parse(source)
+
+    except (OSError, UnicodeError) as error:
+        print(
+            f"Error: no se pudo leer el archivo: {error}",
+            file=sys.stderr,
+        )
+        return 2
+
+    except LanguageError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+    print("Parse successful")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
