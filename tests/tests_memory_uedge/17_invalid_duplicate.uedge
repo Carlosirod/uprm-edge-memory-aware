@@ -1,0 +1,3 @@
+@memory(40kb)
+@memory(20kb)
+func example() {}

@@ -1,0 +1,4 @@
+// Verifica el numero de linea.
+
+@memory()
+func example() {}

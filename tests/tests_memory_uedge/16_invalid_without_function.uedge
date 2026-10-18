@@ -1,0 +1,2 @@
+@memory(40kb)
+let x = 1;
