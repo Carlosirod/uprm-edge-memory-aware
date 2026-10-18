@@ -1,0 +1,5 @@
+@memory(40kb)
+func example() {
+    let integers = array(int, 1000);
+    let decimals = array(float, 200);
+}

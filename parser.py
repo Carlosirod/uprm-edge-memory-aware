@@ -1,7 +1,22 @@
+import sys
+from pathlib import Path
 
 import ply.yacc as yacc
-from lexer import tokens, lexer
+from lexer import tokens, lexer, LanguageError
 
+# Accepted memory budget units.
+MEMORY_UNITS = {
+    "bytes": 1,
+    "kb": 1024,
+    "mb": 1024 * 1024,
+}
+
+# Sample memory model for Subproject 2.
+# Subproject 1 does not calculate or enforce memory consumption.
+MEMORY_TYPE_BYTES = {
+    "int": 4,
+    "float": 4,
+}
 
 def p_program(p):
     """program : statement_list"""
@@ -26,15 +41,33 @@ def p_statement(p):
 
 def p_memory_function(p):
     """memory_function : MEMORY LPAREN INTEGER ID RPAREN function_def"""
+
+    amount = p[3]
     unit = p[4]
-    if unit not in ("kb", "mb", "bytes"):
-        raise SyntaxError(f"Unsupported memory unit: {unit}")
+
+    if unit not in MEMORY_UNITS:
+        raise LanguageError(
+            f"unsupported memory unit {unit!r} at line {p.lineno(4)}; "
+            "expected 'bytes', 'kb', or 'mb'"
+        )
+
     p[0] = {
         "type": "memory_function",
-        "budget": p[3],
+        "budget": amount,
         "unit": unit,
-        "function": p[6]
+        "budget_bytes": amount * MEMORY_UNITS[unit],
+        "line": p.lineno(1),
+        "function": p[6],
     }
+
+def p_memory_function_empty(p):
+    """memory_function : MEMORY LPAREN RPAREN function_def"""
+
+    raise LanguageError(
+        f"empty @memory() annotation at line {p.lineno(1)}; "
+        "expected an integer budget and a unit, "
+        "for example @memory(40kb)"
+    )
 
 
 def p_function_def(p):
@@ -112,6 +145,16 @@ def p_expression_boolean(p):
 def p_expression_variable(p):
     """expression : ID"""
     p[0] = p[1]
+    
+def p_expression_plus(p):
+    "expression : expression PLUS expression"
+
+    p[0] = {
+        "type": "binary",
+        "operator": p[2],
+        "left": p[1],
+        "right": p[3],
+    }
 
 
 def p_empty(p):
@@ -119,17 +162,69 @@ def p_empty(p):
     p[0] = []
 
 
-def p_error(p):
-    if p:
-        raise SyntaxError(
-            f"Syntax error at line {p.lineno}, near {p.value!r}"
+def p_error(token):
+    if token is None:
+        raise LanguageError(
+            f"unexpected end of file on line {active_lexer.lineno}; "
+            "An instruction is incomplete, or a delimiter is missing its closing counterpart"
         )
-    raise SyntaxError("Unexpected end of input")
 
+    raise LanguageError(
+        f"unexpected token {token.value!r} in line {token.lineno}; "
+        "review the instruction and its delimiters"
+    )
 
-parser = yacc.yacc()
+####
 
+active_lexer = None
 
 def parse(source):
-    lexer.lineno = 1
-    return parser.parse(source, lexer=lexer)
+    """Analiza el codigo y devuelve su AST sin ejecutarlo."""
+    global active_lexer
+
+    active_lexer = lexer
+    active_lexer.lineno = 1
+
+    parser = yacc.yacc(
+        start="program",
+        write_tables=False,
+        debug=False,
+        errorlog=yacc.NullLogger(),
+    )
+
+    return parser.parse(
+        source,
+        lexer=active_lexer,
+        tracking=True,
+    )
+
+
+def main():
+    if len(sys.argv) != 2:
+        print(
+            "Uso: python parser.py <archivo>.uedge",
+            file=sys.stderr,
+        )
+        return 2
+
+    try:
+        source = Path(sys.argv[1]).read_text(encoding="utf-8-sig")
+        parse(source)
+
+    except (OSError, UnicodeError) as error:
+        print(
+            f"Error: no se pudo leer el archivo: {error}",
+            file=sys.stderr,
+        )
+        return 2
+
+    except LanguageError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+    print("Parse successful")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

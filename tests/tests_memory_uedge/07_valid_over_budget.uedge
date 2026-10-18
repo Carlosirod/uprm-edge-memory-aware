@@ -1,0 +1,4 @@
+@memory(1bytes)
+func example() {
+    let buffer = array(int, 1000);
+}
