@@ -158,9 +158,8 @@ def t_error(t):
 lexer = lex.lex()
 
 
-# ============================================================
-# PARSER
-# ============================================================
+
+# Parser
 
 # Accepted memory budget units.
 MEMORY_UNITS = {
@@ -175,6 +174,16 @@ MEMORY_TYPE_BYTES = {
     "int": 4,
     "float": 4,
 }
+
+precedence = (
+    ("nonassoc", "IF_WITHOUT_ELSE"),
+    ("nonassoc", "ELSE"),
+    ("nonassoc", "EQ", "NE", "LT", "LE", "GT", "GE"),
+    ("left", "PLUS", "MINUS"),
+    ("left", "TIMES", "DIVIDE", "MOD"),
+    ("right", "UMINUS", "UPLUS"),
+)
+
 
 def p_program(p):
     """program : statement_list"""
@@ -191,14 +200,60 @@ def p_statement_list(p):
 
 
 def p_statement(p):
-    """statement : function_def
-                 | function_call
+    """statement : declaration SEMI
+                 | assignment SEMI
+                 | expression SEMI
+                 | block
+                 | function_def
                  | memory_function"""
     p[0] = p[1]
 
 
+def p_declaration(p):
+    """declaration : LET ID ASSIGN expression"""
+    p[0] = {
+        "type": "let",
+        "name": p[2],
+        "value": p[4]
+    }
+
+
+def p_assignment(p):
+    """assignment : lvalue ASSIGN expression"""
+    p[0] = {
+        "type": "assignment",
+        "target": p[1],
+        "value": p[3]
+    }
+
+
+def p_lvalue(p):
+    """lvalue : ID
+              | lvalue LBRACKET expression RBRACKET"""
+
+    if len(p) == 2:
+        p[0] = {
+            "type": "variable",
+            "name": p[1]
+        }
+    else:
+        p[0] = {
+            "type": "index",
+            "target": p[1],
+            "index": p[3]
+        }
+
+
+def p_block(p):
+    """block : LBRACE statement_list RBRACE"""
+    p[0] = {
+        "type": "block",
+        "statements": p[2]
+    }
+
+
 def p_memory_function(p):
-    """memory_function : MEMORY LPAREN INTEGER ID RPAREN function_def"""
+    """memory_function : MEMORY LPAREN budget ID RPAREN function_def"""
 
     amount = p[3]
     unit = p[4]
@@ -218,6 +273,7 @@ def p_memory_function(p):
         "function": p[6],
     }
 
+
 def p_memory_function_empty(p):
     """memory_function : MEMORY LPAREN RPAREN function_def"""
 
@@ -228,29 +284,89 @@ def p_memory_function_empty(p):
     )
 
 
+def p_budget(p):
+    """budget : INTEGER
+              | DECIMAL"""
+    p[0] = p[1]
+
+
 def p_function_def(p):
-    """function_def : FUNC ID LPAREN RPAREN LBRACE statement_list RBRACE"""
+    """function_def : FUNC ID LPAREN parameters RPAREN block"""
     p[0] = {
         "type": "function",
         "name": p[2],
-        "body": p[6]
+        "parameters": p[4],
+        "body": p[6],
     }
 
 
-def p_function_call(p):
-    """function_call : ID LPAREN RPAREN SEMI"""
+def p_parameters(p):
+    """parameters : parameter_list
+                  | empty"""
+    p[0] = p[1] or []
+
+
+def p_parameter_list(p):
+    """parameter_list : ID
+                      | parameter_list COMMA ID"""
+
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[3]]
+
+
+def p_statement_if(p):
+    """statement : IF LPAREN expression RPAREN statement %prec IF_WITHOUT_ELSE
+                 | IF LPAREN expression RPAREN statement ELSE statement"""
+
     p[0] = {
-        "type": "call",
-        "name": p[1]
+        "type": "if",
+        "condition": p[3],
+        "then": p[5],
+        "else": p[7] if len(p) == 8 else None,
     }
 
 
-def p_statement_let(p):
-    """statement : LET ID ASSIGN expression SEMI"""
+def p_statement_while(p):
+    """statement : WHILE LPAREN expression RPAREN statement"""
     p[0] = {
-        "type": "let",
-        "name": p[2],
-        "value": p[4]
+        "type": "while",
+        "condition": p[3],
+        "body": p[5],
+    }
+
+
+def p_statement_for(p):
+    """statement : FOR LPAREN for_part SEMI optional_expression SEMI for_part RPAREN statement"""
+    p[0] = {
+        "type": "for",
+        "initial": p[3],
+        "condition": p[5],
+        "update": p[7],
+        "body": p[9],
+    }
+
+
+def p_for_part(p):
+    """for_part : declaration
+                | assignment
+                | expression
+                | empty"""
+    p[0] = p[1]
+
+
+def p_optional_expression(p):
+    """optional_expression : expression
+                           | empty"""
+    p[0] = p[1]
+
+
+def p_statement_return(p):
+    """statement : RETURN optional_expression SEMI"""
+    p[0] = {
+        "type": "return",
+        "value": p[2]
     }
 
 
@@ -262,8 +378,97 @@ def p_statement_print(p):
     }
 
 
+def p_expression_binary(p):
+    """expression : expression PLUS expression
+                  | expression MINUS expression
+                  | expression TIMES expression
+                  | expression DIVIDE expression
+                  | expression MOD expression
+                  | expression EQ expression
+                  | expression NE expression
+                  | expression LT expression
+                  | expression LE expression
+                  | expression GT expression
+                  | expression GE expression"""
+
+    p[0] = {
+        "type": "binary",
+        "operator": p[2],
+        "left": p[1],
+        "right": p[3],
+    }
+
+
+def p_expression_unary(p):
+    """expression : MINUS expression %prec UMINUS
+                  | PLUS expression %prec UPLUS"""
+
+    p[0] = {
+        "type": "unary",
+        "operator": p[1],
+        "value": p[2]
+    }
+
+
+def p_expression_group(p):
+    """expression : LPAREN expression RPAREN"""
+    p[0] = p[2]
+
+
+def p_expression_literal(p):
+    """expression : INTEGER
+                  | DECIMAL
+                  | TEXT
+                  | TRUE
+                  | FALSE"""
+
+    if p.slice[1].type == "TRUE":
+        value = True
+    elif p.slice[1].type == "FALSE":
+        value = False
+    else:
+        value = p[1]
+
+    p[0] = {
+        "type": "literal",
+        "value": value
+    }
+
+
+def p_expression_variable(p):
+    """expression : lvalue"""
+    p[0] = p[1]
+
+
+def p_expression_call(p):
+    """expression : ID LPAREN arguments RPAREN"""
+
+    p[0] = {
+        "type": "call",
+        "name": p[1],
+        "arguments": p[3]
+    }
+
+
+def p_arguments(p):
+    """arguments : expressions
+                 | empty"""
+    p[0] = p[1] or []
+
+
+def p_expressions(p):
+    """expressions : expression
+                   | expressions COMMA expression"""
+
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[3]]
+
+
 def p_expression_array(p):
-    """expression : ARRAY LPAREN type_name COMMA INTEGER RPAREN"""
+    """expression : ARRAY LPAREN type_name COMMA expression RPAREN"""
+
     p[0] = {
         "type": "array",
         "element_type": p[3],
@@ -279,45 +484,9 @@ def p_type_name(p):
     p[0] = p[1]
 
 
-def p_expression_integer(p):
-    """expression : INTEGER"""
-    p[0] = p[1]
-
-
-def p_expression_decimal(p):
-    """expression : DECIMAL"""
-    p[0] = p[1]
-
-
-def p_expression_text(p):
-    """expression : TEXT"""
-    p[0] = p[1]
-
-
-def p_expression_boolean(p):
-    """expression : TRUE
-                  | FALSE"""
-    p[0] = p[1]
-
-
-def p_expression_variable(p):
-    """expression : ID"""
-    p[0] = p[1]
-    
-def p_expression_plus(p):
-    "expression : expression PLUS expression"
-
-    p[0] = {
-        "type": "binary",
-        "operator": p[2],
-        "left": p[1],
-        "right": p[3],
-    }
-
-
 def p_empty(p):
     """empty :"""
-    p[0] = []
+    p[0] = None
 
 
 def p_error(token):
