@@ -515,16 +515,140 @@ def p_empty(p):
 
     p[0] = None
 
+class DiagnosticLexer:
+    def __init__(self, base):
+        self.base = base
+        self.previous = None
+        self.current = None
+        self.open_delimiters = []
 
+    def input(self, source):
+        self.base.lineno = 1
+        self.base.input(source)
+
+        self.previous = None
+        self.current = None
+        self.open_delimiters = []
+
+    def token(self):
+        token = self.base.token()
+
+        if token is None:
+            return None
+
+        self.previous = self.current
+        self.current = token
+
+        opening = {
+            "LPAREN": "RPAREN",
+            "LBRACE": "RBRACE",
+            "LBRACKET": "RBRACKET",
+        }
+
+        if token.type in opening:
+            self.open_delimiters.append(token)
+
+        elif self.open_delimiters:
+            top = self.open_delimiters[-1]
+
+            if opening[top.type] == token.type:
+                self.open_delimiters.pop()
+
+        return token
+
+    def __getattr__(self, name):
+        return getattr(self.base, name)
+
+
+def can_accept_token(token_type):
+    states = list(parser.statestack)
+    visited = set()
+
+    while True:
+        signature = tuple(states)
+
+        if signature in visited:
+            return False
+
+        visited.add(signature)
+
+        action = parser.action.get(
+            states[-1], {}
+        ).get(token_type)
+
+        if action is None:
+            return False
+
+        if action >= 0:
+            return True
+
+        production = parser.productions[-action]
+
+        if production.len:
+            del states[-production.len:]
+
+        next_state = parser.goto.get(
+            states[-1], {}
+        ).get(production.name)
+
+        if next_state is None:
+            return False
+
+        states.append(next_state)
+        
 def p_error(token):
-
     if token is None:
+        if active_lexer.open_delimiters:
+            opening = active_lexer.open_delimiters[-1]
+
+            closing = {
+                "LPAREN": ")",
+                "LBRACE": "}",
+                "LBRACKET": "]",
+            }[opening.type]
+
+            raise LanguageError(
+                f"missing closing '{closing}'"
+            )
+
         raise LanguageError(
-            "missing closing delimiter"
+            f"unexpected end of file at line "
+            f"{active_lexer.lineno}"
+        )
+
+    statement_starters = {
+        "LET", "PRINT", "RETURN",
+        "IF", "WHILE", "FOR",
+        "FUNC", "MEMORY", "ID", "RBRACE",
+    }
+
+    if (
+        token.type in statement_starters
+        and can_accept_token("SEMI")
+    ):
+        previous = active_lexer.previous
+        line = (
+            previous.lineno
+            if previous is not None
+            else token.lineno
+        )
+
+        raise LanguageError(
+            f"expected ‘;’ at line {line}"
+        )
+
+    if (
+        token.type == "LBRACE"
+        and active_lexer.open_delimiters
+        and can_accept_token("RPAREN")
+    ):
+        raise LanguageError(
+            f"missing closing ')' at line {token.lineno}"
         )
 
     raise LanguageError(
-        f"unexpected token {token.value!r} at line {token.lineno}"
+        f"unexpected token {token.value!r} "
+        f"at line {token.lineno}"
     )
 
 
@@ -535,20 +659,18 @@ parser = None
 
 
 def parse(source):
-    """Analiza el codigo y devuelve su AST sin ejecutarlo."""
-
     global active_lexer
     global parser
 
-    active_lexer = lexer
-    active_lexer.lineno = 1
+    active_lexer = DiagnosticLexer(lexer)
 
     if parser is None:
         parser = yacc.yacc()
 
     return parser.parse(
         source,
-        lexer=active_lexer
+        lexer=active_lexer,
+        tracking=True,
     )
 
 
