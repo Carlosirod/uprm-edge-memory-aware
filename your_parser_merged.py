@@ -151,7 +151,7 @@ def t_error(t):
     if t.value[0] == '"':
         description = "malformed string"
     else:
-        description = f"unexpected token {t.value[0]!r}"
+        description = f"unexpected token ‘{t.value[0]}’"
 
     raise LanguageError(
         f"{description} at line {t.lineno}"
@@ -581,13 +581,8 @@ def main():
         return 2
 
     except LanguageError as error:
-
-        print(
-            f"Error: {error}",
-            file=sys.stderr
-        )
-
-        return 1
+        print(f"Error: {error}")
+        return 0
 
     print("Parsed successfully")
     return 0
