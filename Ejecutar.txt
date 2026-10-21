@@ -1,10 +1,10 @@
 python -m venv .venv
 .\.venv\bin\python.exe -m pip install ply
 
-.\.venv\bin\python.exe parser.py ".\tests\Invalid Core Programs-20261017\name.uedge"
+.\.venv\bin\python.exe your_parser.py ".\tests\Invalid Core Programs-20261017\name.uedge"
 
-.\.venv\bin\python.exe parser.py ".\tests\Memory Track-20261017\name.uedge"
+.\.venv\bin\python.exe your_parser.py ".\tests\Memory Track-20261017\name.uedge"
 
-.\.venv\bin\python.exe parser.py ".\tests\Valid Core Programs-20261017\name.uedge"
+.\.venv\bin\python.exe your_parser.py ".\tests\Valid Core Programs-20261017\name.uedge"
 
-.\.venv\bin\python.exe parser.py ".\tests\tests_memory_uedge\name.uedge"
+.\.venv\bin\python.exe your_parser.py ".\tests\tests_memory_uedge\name.uedge"
